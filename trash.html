@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hole wall</title>
+<link rel="prefetch" href="sub_1.html">
+<style>
+  /* cross-document view transition: fades this page's snapshot into the
+     next page's on navigation, so the background color change (light
+     here → #161617 on sub_1) reads as one smooth transition instead of
+     an instant cut. sub_1.html needs the matching @view-transition rule
+     too — both the departing and arriving document opt in. */
+  @view-transition {
+    navigation: auto;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.5s;
+  }
+
+  @font-face {
+    font-family: 'SM3SSMyungJo';
+    src: url('fonts/SM3SSMyungJo-04.otf') format('opentype');
+    font-weight: 400;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Panama Monospace';
+    src: url('fonts/PanamaMonospace-Regular.otf') format('opentype');
+    font-weight: 400;
+    font-display: swap;
+  }
+
+  :root{
+    --bg:#F9F9FB;
+    --paper:#1e1d21;
+    --dim:#9a9a9a;
+    /* paper is fixed at 360mm × 128mm (physical size on screen); paper is
+       79% × 69.75% of the sheet, so the sheet itself works out to
+       360/0.79 × 128/0.6975 mm to keep that same margin proportion */
+    --sheet-w: 455.696;
+    --sheet-h: 183.513;
+    --font-en: 'Panama Monospace', 'JetBrains Mono', monospace;
+    --font-kr: 'SM3SSMyungJo', 'Apple SD Gothic Neo', serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    background: var(--bg);
+    font-family: var(--font-en);
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 6vh 4vw;
+  }
+
+  /* ---- the stage: holds just the sheet now. Fixed to the sheet's
+     physical mm size (see --sheet-w/--sheet-h) so the paper renders at
+     true 360mm × 128mm; the vw cap only kicks in if the viewport is too
+     small to fit that. Sizing .stage to exactly the sheet (instead of
+     sheet+caption+citation stacked together) means centering .stage in
+     the viewport centers the black rectangle itself — the caption block
+     hangs below it via .below, absolutely positioned so its height
+     doesn't pull the rectangle off-center ---- */
+  .stage {
+    position: relative;
+    width: min(455.696mm, 96vw);
+  }
+
+  /* ---- the sheet: everything is laid out in % of this box,
+     so it scales as one unit at any viewport size ---- */
+  .sheet {
+    position: relative;
+    width: 100%;
+    aspect-ratio: var(--sheet-w) / var(--sheet-h);
+  }
+
+  /* ---- caption + citation hang below the sheet without affecting
+     .stage's own height/centering ---- */
+  .below {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    width: 100%;
+    margin-top: -1vh;
+  }
+
+  /* ---- title above the sheet, mirroring .below's gap on the other side ---- */
+  .title {
+    position: absolute;
+    left: 0;
+    bottom: 100%;
+    width: 100%;
+    margin: 0 0 -1vh;
+    padding-left: 10.5%;
+    padding-right: 10.5%;
+    font-family: var(--font-en);
+    font-size: 44pt;
+    letter-spacing: 0.3em;
+    color: #161617;
+    text-align: center;
+  }
+
+  /* ---- caption, inset to the paper's own width
+     (paper spans 10.5%–89.5% of the sheet) and centered within it ---- */
+  .caption {
+    margin: 0;
+    padding-left: 10.5%;
+    padding-right: 10.5%;
+    font-family: var(--font-kr);
+    font-weight: 400;
+    font-size: 12pt;
+    line-height: 1.55;
+    color: #161617;
+    text-align: center;
+  }
+
+  .citation {
+    margin: 0.9em 0 0;
+    padding-left: 10.5%;
+    padding-right: 10.5%;
+    font-family: var(--font-kr);
+    font-weight: 400;
+    font-size: 12pt;
+    color: var(--dim);
+    text-align: center;
+  }
+
+  /* ---- rec_bg.png sits behind the paper, sharing its exact center
+     (paper is centered in the sheet, so 50%/50% works for both) but
+     sized a bit larger so it peeks out around all 4 edges ---- */
+  .rec-bg {
+    position: absolute;
+    left: 50%;
+    top: 53%;
+    transform: translate(-50%, -50%);
+    width: calc(75% + 120mm);
+    height: calc(69.75% + 130mm);
+    object-fit: cover;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* ---- the trimmed paper — centered in the sheet: (100-79)/2 = 10.5%
+     left/right, (100-69.75)/2 = 15.125% top/bottom ---- */
+  .paper {
+    position: absolute;
+    left: 10.5%;
+    top: 15.125%;
+    width: 79%;
+    height: 69.75%;
+    background: var(--paper);
+    container-type: inline-size;
+    overflow: hidden;
+    box-shadow: inset 0 0 0.6cqw 0.6cqw rgba(0, 0, 0, 0.7);
+  }
+
+  /* aged-paper overlay — tex.jpg sits on top of the dark paper,
+     screened in so its lighter grain/fiber/stains read as texture
+     instead of just darkening the black */
+  .texture {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+    user-select: none;
+    mix-blend-mode: screen;
+    opacity: 0.17;
+  }
+
+  /* second texture pass, layered on top of .texture for extra grain/emphasis */
+  .texture-2 {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+    user-select: none;
+    mix-blend-mode: overlay;
+    opacity: 0.2;
+  }
+
+  /* ---- punched holes: CSS-drawn circle placeholder standing in for the
+     hole_N.png cutouts until those are ready, label on top, linking
+     straight into the next page — plain <a> navigation so there is no
+     in-page loading step ---- */
+  .hole {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 32% 28%, #ffffff 0%, #e2e2e2 55%, #c6c6c6 100%);
+    box-shadow:
+      inset -0.08cqw 0 0.1cqw rgba(255,255,255,0.95),
+      inset 0.09cqw 0 0.1cqw rgba(0,0,0,0.35);
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.35s ease, box-shadow 0.35s ease;
+    cursor: pointer;
+  }
+
+  .hole span {
+    position: relative;
+    font-family: var(--font-kr);
+    font-weight: 400;
+    font-size: 14.4pt;
+    color: #1a1a1a;
+    user-select: none;
+    line-height: 1;
+  }
+
+  .hole:hover,
+  .hole:focus-visible {
+    transform: translate(-50%, -50%) scale(1.08);
+    box-shadow:
+      inset -0.05cqw 0 0.02cqw rgba(255,255,255,0.95),
+      inset 0.06cqw 0 0.02cqw rgba(0,0,0,0.35);
+    outline: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hole { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+<p class="title">Hyper-hole</p>
+<div class="sheet">
+
+  <img class="rec-bg" src="rec_bg.png" alt="">
+
+  <div class="paper">
+    <img class="texture" src="tex.jpg" alt="">
+    <img class="texture-2" src="texture_2.jpg" alt="">
+
+    <!-- 공간 -->
+    <a class="hole" href="sub_1.html" style="left:59.45%; top:10.05%; width:2.27cqw; height:2.27cqw"><span>공</span></a>
+    <a class="hole" href="sub_1.html" style="left:58.83%; top:16.32%; width:2.27cqw; height:2.27cqw"><span>간</span></a>
+    <!-- 방 -->
+    <a class="hole" href="sub_1.html" style="left:39.32%; top:58.67%; width:2.52cqw; height:2.52cqw"><span>방</span></a>
+    <!-- 기억 -->
+    <a class="hole" href="sub_1.html" style="left:9.17%; top:17.12%; width:2.29cqw; height:2.29cqw"><span>기</span></a>
+    <a class="hole" href="sub_1.html" style="left:7.21%; top:12.28%; width:2.15cqw; height:2.15cqw"><span>억</span></a>
+    <!-- 재조합 -->
+    <a class="hole" href="sub_1.html" style="left:69.29%; top:42.79%; width:2.08cqw; height:2.08cqw"><span>재</span></a>
+    <a class="hole" href="sub_1.html" style="left:69.01%; top:49.16%; width:2.24cqw; height:2.24cqw"><span>조</span></a>
+    <a class="hole" href="sub_1.html" style="left:66.92%; top:45.39%; width:2.23cqw; height:2.23cqw"><span>합</span></a>
+    <!-- 꿈 -->
+    <a class="hole" href="sub_1.html" style="left:69.32%; top:82.36%; width:2.74cqw; height:2.74cqw"><span>꿈</span></a>
+    <!-- 마주 -->
+    <a class="hole" href="sub_1.html" style="left:6.68%; top:57.34%; width:2.16cqw; height:2.16cqw"><span>마</span></a>
+    <a class="hole" href="sub_1.html" style="left:7.75%; top:50.79%; width:2.21cqw; height:2.21cqw"><span>주</span></a>
+    <!-- 자신 -->
+    <a class="hole" href="sub_1.html" style="left:36.42%; top:19.07%; width:2.45cqw; height:2.45cqw"><span>자</span></a>
+    <a class="hole" href="sub_1.html" style="left:38.92%; top:14.62%; width:2.52cqw; height:2.52cqw"><span>신</span></a>
+    <!-- 회피 -->
+    <a class="hole" href="sub_1.html" style="left:81.86%; top:15.35%; width:2.14cqw; height:2.14cqw"><span>회</span></a>
+    <a class="hole" href="sub_1.html" style="left:83.31%; top:9.63%; width:2.24cqw; height:2.24cqw"><span>피</span></a>
+    <!-- 동기 -->
+    <a class="hole" href="sub_1.html" style="left:41.84%; top:88.47%; width:2.5cqw; height:2.5cqw"><span>동</span></a>
+    <a class="hole" href="sub_1.html" style="left:41.71%; top:81.5%; width:2.32cqw; height:2.32cqw"><span>기</span></a>
+    <!-- 휴식 -->
+    <a class="hole" href="sub_1.html" style="left:92.71%; top:76.64%; width:2.51cqw; height:2.51cqw"><span>휴</span></a>
+    <a class="hole" href="sub_1.html" style="left:89.86%; top:76.9%; width:2.46cqw; height:2.46cqw"><span>식</span></a>
+    <!-- 낭비 -->
+    <a class="hole" href="sub_1.html" style="left:20.19%; top:90.28%; width:2.26cqw; height:2.26cqw"><span>낭</span></a>
+    <a class="hole" href="sub_1.html" style="left:20.19%; top:83.55%; width:2.2cqw; height:2.2cqw"><span>비</span></a>
+    <!-- 복원 -->
+    <a class="hole" href="sub_1.html" style="left:82.35%; top:56.75%; width:2.44cqw; height:2.44cqw"><span>복</span></a>
+    <a class="hole" href="sub_1.html" style="left:79.41%; top:57.1%; width:2.45cqw; height:2.45cqw"><span>원</span></a>
+
+    <!-- 기록 -->
+    <a class="hole" href="sub_1.html" style="left:90.92%; top:89.78%; width:2.53cqw; height:2.53cqw"><span>기</span></a>
+    <a class="hole" href="sub_1.html" style="left:92.98%; top:85.93%; width:2.3cqw; height:2.3cqw"><span>록</span></a>
+    <!-- 따라 -->
+    <a class="hole" href="sub_1.html" style="left:7.01%; top:81.69%; width:2.41cqw; height:2.41cqw"><span>따</span></a>
+    <a class="hole" href="sub_1.html" style="left:4.45%; top:80.39%; width:2.16cqw; height:2.16cqw"><span>라</span></a>
+    <!-- 지도 -->
+    <a class="hole" href="sub_1.html" style="left:66.22%; top:17.43%; width:2.5cqw; height:2.5cqw"><span>지</span></a>
+    <a class="hole" href="sub_1.html" style="left:65.16%; top:24.93%; width:2.36cqw; height:2.36cqw"><span>도</span></a>
+    <!-- 목적지 -->
+    <a class="hole" href="sub_1.html" style="left:25.96%; top:36.16%; width:2.12cqw; height:2.12cqw"><span>목</span></a>
+    <a class="hole" href="sub_1.html" style="left:25.29%; top:43.32%; width:2.22cqw; height:2.22cqw"><span>적</span></a>
+    <a class="hole" href="sub_1.html" style="left:28.2%; top:39.29%; width:2.12cqw; height:2.12cqw"><span>지</span></a>
+    <!-- 길 -->
+    <a class="hole" href="sub_1.html" style="left:6.07%; top:38.09%; width:2.42cqw; height:2.42cqw"><span>길</span></a>
+    <!-- 연속 -->
+    <a class="hole" href="sub_1.html" style="left:32.82%; top:89.72%; width:2.35cqw; height:2.35cqw"><span>연</span></a>
+    <a class="hole" href="sub_1.html" style="left:31.08%; top:84.51%; width:2.36cqw; height:2.36cqw"><span>속</span></a>
+  </div>
+</div>
+
+<div class="below">
+<p class="caption">무언가를 붙잡기 위해, 무언가를 살아남게 하기 위해 세심하게 노력하기.<br>
+점점 깊어지는 공허로부터 몇몇 분명한 조각들을 끄집어내기, 어딘가에 하나의 홈,<br>
+하나의 흔적, 하나의 표시, 또는 몇 개의 기호들을 남기기.</p>
+<p class="citation">조르주 페렉, 공간의 종류들 153p</p>
+</div>
+
+</div>
+
+<script>
+  // intro + idle replay: every hole appears with a hard instant cut (no
+  // scale/fade animation) at its own random moment, in random order, all
+  // landing within a hard 2s budget. This is an exhibition kiosk piece, so
+  // a visitor glancing over after it's settled shouldn't read the still
+  // frame as frozen — if 3s pass with no interaction after a full reveal,
+  // it replays, looping for as long as nobody touches it.
+  (() => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return;
+
+    const TOTAL_MS = 2000;
+    const IDLE_MS = 3000;
+    const holes = document.querySelectorAll('.hole');
+
+    function punchHoles() {
+      holes.forEach(hole => {
+        const anim = hole.animate([
+          { transform: 'translate(-50%, -50%) scale(0)', opacity: 0 },
+          { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 }
+        ], {
+          duration: 1,
+          delay: Math.random() * TOTAL_MS,
+          fill: 'both'
+        });
+        anim.onfinish = () => anim.cancel();
+      });
+    }
+
+    let replayTimer = null;
+    function armReplay() {
+      clearTimeout(replayTimer);
+      replayTimer = setTimeout(() => {
+        punchHoles();
+        armReplay();
+      }, TOTAL_MS + IDLE_MS);
+    }
+
+    ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'].forEach(evt =>
+      window.addEventListener(evt, armReplay, { passive: true })
+    );
+
+    punchHoles();
+    armReplay();
+  })();
+</script>
+
+</body>
+</html>
