@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hole wall — sub_1</title>
+<style>
+  /* cross-document view transition — see index.html for the matching
+     declaration; both documents need this for the fade to engage */
+  @view-transition {
+    navigation: auto;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.5s;
+  }
+
+  /* same declaration as index.html, so the two pages' Korean text match */
+  @font-face {
+    font-family: 'SM3SSMyungJo';
+    src: url('fonts/SM3SSMyungJo-04.otf') format('opentype');
+    font-weight: 400;
+    font-display: swap;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #161617;
+    /* a dark scrim layered over the photo (not a separate element) so
+       the background reads darker without touching the image itself */
+    background-image: linear-gradient(rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.58)), url('sub_bg.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    font-family: 'Panama Monospace', 'JetBrains Mono', monospace;
+  }
+
+  .back-link {
+  position: fixed;
+  top: 4vh;
+  left: 4vw;
+  z-index: 200;
+  color: #cfcfcf;
+  font-family: 'SM3SSMyungJo', 'Apple SD Gothic Neo', serif;
+  font-weight: 400;
+  font-size: 14pt;
+  letter-spacing: 0.04em;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+
+  /* a strong circular edge-darkening over the whole screen — like looking
+     at the page through a hole. Sits above the wandering photos (which
+     have no z-index of their own) but below the back-link and lightbox. */
+  .vignette {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+    background: radial-gradient(
+      circle at center,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(0, 0, 0, 0.8) 80%,
+      rgba(0, 0, 0, 0.9) 90%,
+      rgba(0, 0, 0, 1) 100%
+    );
+  }
+
+  /* ---- the stage: a single fixed viewport, no scroll. Each photo is
+     absolutely positioned off its own center-relative offset, animated
+     every frame by JS toward a target (see JS: loop/lerp) — idly toward
+     a randomized wander point, or on hover toward its grid slot. Using
+     a per-frame lerp instead of a CSS transition means switching targets
+     (wander → grid → wander again) never snaps or restarts an easing
+     curve mid-flight; it just keeps interpolating smoothly. ---- */
+  .stage {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    will-change: transform, opacity;
+  }
+
+  .photo-frame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    cursor: pointer;
+    will-change: transform, opacity, width, height;
+  }
+
+  .frame-photo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+  }
+
+  /* ---- lightbox: no longer a shared-element morph — a single element
+     "growing and sliding to center" reads as a page/UI transition, not
+     as the viewer's own eye pushing in on that spot. Instead, opening
+     scales up #stage itself (see .stage below) around the clicked
+     photo's exact screen position while this backdrop + the big image
+     cross-fade in on top — the whole scene rushes toward that point,
+     like looking closer through the hole, and the detail image is
+     simply what's waiting at the end of that push. z-index must beat
+     every .photo-frame so the scaled-down stage never peeks through. */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.55s ease, background-color 0.55s ease;
+  }
+
+  .lightbox.active {
+    opacity: 1;
+    pointer-events: auto;
+    background: rgba(0, 0, 0, 0.82);
+  }
+
+  .lightbox-frame {
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  }
+
+  #lightboxImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* ---- hand-gesture video: no visible camera UI anymore — just the
+     raw feed MediaPipe reads frames from. Kept in the DOM and playing
+     (not display:none, which stalls decode in some browsers) but
+     shrunk to a single pixel and fully transparent so nothing shows. ---- */
+  #handVideo {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<a class="back-link" href="index.html">← 구멍 밖</a>
+
+<div class="stage" id="stage"></div>
+
+<div class="vignette"></div>
+
+<div class="lightbox" id="lightbox">
+  <div class="lightbox-frame" id="lightboxFrame">
+    <img id="lightboxImg" src="" alt="">
+  </div>
+</div>
+
+<video id="handVideo" autoplay playsinline muted></video>
+
+<script>
+  // ---- photos: src + aspect ratio (width / height), measured from each
+  // file's actual pixel dimensions ----
+  const photos = [
+    { src: '0725_방_1.png', ratio: 2593 / 3683, hoverSrc: '0725_방_2.png' },
+    { src: '0727_기억_1.png', ratio: 2835 / 3780, hoverSrc: '0727_기억_2.png' },
+    { src: '0730_재조합_1.png', ratio: 2268 / 3024, hoverSrc: '0730_재조합_2.png' },
+    { src: '0802_마주_1.png', ratio: 2268 / 3024, hoverSrc: '0802_마주_2.png' },
+    { src: '0804_회피_1.png', ratio: 2268 / 1701,hoverSrc: '0804_회피_2.png' },
+    { src: '0808_휴식_1.png', ratio: 2268 / 1501,hoverSrc: '0808_휴식_2.png'  },
+    { src: '0810_복원_1.png', ratio: 2268 / 3024 },
+    { src: '0812_따라_1.png', ratio: 2268 / 1935 },
+    { src: '0815_목적지_1.png', ratio: 2268 / 3024 },
+    { src: '0818_연속_1.png', ratio: 2268 / 2268 },
+  ];
+
+  const stage = document.getElementById('stage');
+
+  function fitBox(ratio, maxW, maxH) {
+    let w = maxW, h = w / ratio;
+    if (h > maxH) { h = maxH; w = h * ratio; }
+    return { w, h };
+  }
+
+  const images = [];
+
+  const frames = photos.map(p => {
+    const frame = document.createElement('div');
+    frame.className = 'photo-frame';
+
+    const img = document.createElement('img');
+    img.className = 'frame-photo';
+    img.src = p.src;
+    img.alt = '';
+    img.dataset.ratio = p.ratio;
+    frame.appendChild(img);
+    images.push(img);
+
+    stage.appendChild(frame);
+    return frame;
+  });
+
+  // ---- hover target: growing in place, anchored at wherever the photo
+  // already was the moment the hover started, clamped to stay fully
+  // on-screen. Earlier this relocated to a fixed pre-computed grid
+  // slot elsewhere on screen — the instant a cursor landed on a photo
+  // it would start sliding away toward that slot, reading as the photo
+  // dodging the cursor. Growing around its own live position means it
+  // never moves out from under the pointer. ----
+  const HOVER_MAX_W = () => Math.min(window.innerWidth * 0.34, 460);
+  const HOVER_MAX_H = () => Math.min(window.innerHeight * 0.42, 460);
+  const HOVER_EDGE_MARGIN = 24;
+
+  function hoverTargetAt(cx, cy, ratio) {
+    const { w, h } = fitBox(ratio, HOVER_MAX_W(), HOVER_MAX_H());
+    const halfStageW = window.innerWidth / 2;
+    const halfStageH = window.innerHeight / 2;
+    const minX = -halfStageW + HOVER_EDGE_MARGIN + w / 2;
+    const maxX = halfStageW - HOVER_EDGE_MARGIN - w / 2;
+    const minY = -halfStageH + HOVER_EDGE_MARGIN + h / 2;
+    const maxY = halfStageH - HOVER_EDGE_MARGIN - h / 2;
+    return {
+      x: Math.min(maxX, Math.max(minX, cx)),
+      y: Math.min(maxY, Math.max(minY, cy)),
+      w, h,
+    };
+  }
+
+  // ---- scatter: the initial, non-overlapping placement (rejection
+  // sampling, same idea as before) — this is only the *starting* spot
+  // now. Ongoing movement is a separate, continuous wander sim below. ----
+  const SCATTER_MARGIN = 40; // px, kept clear of the viewport edges
+  const SCATTER_GAP = 90;    // px, minimum gap between any two photos
+
+  function thumbSize(ratio) {
+    const maxW = Math.min(window.innerWidth * 0.24, 320);
+    const maxH = Math.min(window.innerHeight * 0.32, 320);
+    return fitBox(ratio, maxW, maxH);
+  }
+
+  function computeScatter() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const placed = [];
+    return photos.map((p) => {
+      const size = thumbSize(p.ratio);
+      const halfW = size.w / 2, halfH = size.h / 2;
+      const spanX = Math.max(1, w - SCATTER_MARGIN * 2 - size.w);
+      const spanY = Math.max(1, h - SCATTER_MARGIN * 2 - size.h);
+      let x, y;
+      for (let tries = 0; tries < 500; tries++) {
+        x = SCATTER_MARGIN + halfW + Math.random() * spanX;
+        y = SCATTER_MARGIN + halfH + Math.random() * spanY;
+        const clear = placed.every(o =>
+          Math.abs(x - o.x) >= (halfW + o.halfW + SCATTER_GAP) ||
+          Math.abs(y - o.y) >= (halfH + o.halfH + SCATTER_GAP)
+        );
+        if (clear) break;
+      }
+      placed.push({ x, y, halfW, halfH });
+      return { x: x - w / 2, y: y - h / 2, w: size.w, h: size.h, opacity: 1 };
+    });
+  }
+
+  // ---- wander: every photo drifts on its own very slow, very gentle
+  // heading, forever — separate from whatever is currently *displayed*
+  // (hover can override the view, but the wander sim itself never
+  // stops or resets, so coming back out of a hover eases into wherever
+  // it would naturally be by then instead of a stale spot). Collision
+  // avoidance is a soft, continuous separation push between every pair
+  // each frame — not a one-time check — so it holds up no matter how
+  // the paths cross while drifting, and a slow boundary nudge keeps
+  // everyone inside the stage without a hard, visible clamp. ----
+  const WANDER_SPEED = 7;           // px/second — deliberately slow
+  const WANDER_MARGIN = 40;         // px, soft-bounce zone from the edges
+  const WANDER_GAP = 60;            // px, minimum gap while drifting
+  const HEADING_MIN_MS = 7000;
+  const HEADING_MAX_MS = 16000;     // random interval before picking a new heading
+  const SEPARATION_STRENGTH = 0.12; // fraction of overlap corrected per frame
+  const BOUNDARY_STRENGTH = 0.08;
+
+  function makeWanderer(rect, now) {
+    const angle = Math.random() * Math.PI * 2;
+    return {
+      x: rect.x, y: rect.y, w: rect.w, h: rect.h,
+      radius: Math.hypot(rect.w, rect.h) / 2,
+      vx: Math.cos(angle) * WANDER_SPEED,
+      vy: Math.sin(angle) * WANDER_SPEED,
+      nextHeadingAt: now + HEADING_MIN_MS + Math.random() * (HEADING_MAX_MS - HEADING_MIN_MS),
+    };
+  }
+
+  function updateWanderers(now, dt) {
+    const halfStageW = window.innerWidth / 2;
+    const halfStageH = window.innerHeight / 2;
+
+    wanderers.forEach(wd => {
+      if (now >= wd.nextHeadingAt) {
+        const angle = Math.random() * Math.PI * 2;
+        wd.vx = Math.cos(angle) * WANDER_SPEED;
+        wd.vy = Math.sin(angle) * WANDER_SPEED;
+        wd.nextHeadingAt = now + HEADING_MIN_MS + Math.random() * (HEADING_MAX_MS - HEADING_MIN_MS);
+      }
+      wd.x += wd.vx * dt / 1000;
+      wd.y += wd.vy * dt / 1000;
+    });
+
+    wanderers.forEach(wd => {
+      const leftEdge = -halfStageW + WANDER_MARGIN + wd.w / 2;
+      const rightEdge = halfStageW - WANDER_MARGIN - wd.w / 2;
+      const topEdge = -halfStageH + WANDER_MARGIN + wd.h / 2;
+      const bottomEdge = halfStageH - WANDER_MARGIN - wd.h / 2;
+      if (wd.x < leftEdge) wd.x += (leftEdge - wd.x) * BOUNDARY_STRENGTH;
+      if (wd.x > rightEdge) wd.x -= (wd.x - rightEdge) * BOUNDARY_STRENGTH;
+      if (wd.y < topEdge) wd.y += (topEdge - wd.y) * BOUNDARY_STRENGTH;
+      if (wd.y > bottomEdge) wd.y -= (wd.y - bottomEdge) * BOUNDARY_STRENGTH;
+    });
+
+    for (let i = 0; i < wanderers.length; i++) {
+      for (let j = i + 1; j < wanderers.length; j++) {
+        const a = wanderers[i], b = wanderers[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const dist = Math.hypot(dx, dy) || 0.001;
+        const minDist = a.radius + b.radius + WANDER_GAP;
+        if (dist < minDist) {
+          const push = (minDist - dist) / 2 * SEPARATION_STRENGTH;
+          const nx = dx / dist, ny = dy / dist;
+          a.x += nx * push; a.y += ny * push;
+          b.x -= nx * push; b.y -= ny * push;
+        }
+      }
+    }
+  }
+
+  function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function lerpRect(a, b, t) {
+    return {
+      x: a.x + (b.x - a.x) * t,
+      y: a.y + (b.y - a.y) * t,
+      w: a.w + (b.w - a.w) * t,
+      h: a.h + (b.h - a.h) * t,
+      opacity: a.opacity + (b.opacity - a.opacity) * t,
+    };
+  }
+
+  // ---- circle mode: driven externally by the hand-gesture module
+  // script below (making an "OK"/pinch shape with one hand toggles
+  // window.__circleGestureActive). All photos glide onto a shared,
+  // slowly-turning ring while it holds, then ease back into wherever
+  // the wander sim has drifted to by the time it lets go. This file
+  // just polls that flag once a frame — it never imports or waits on
+  // the gesture module, so hand-tracking failing to load (no camera,
+  // model fetch error, etc.) can't break the normal wander/hover page. ----
+  const CIRCLE_ROTATE_SPEED = 0.35; // radians/second
+  let circleAngle = 0;
+
+  function circleRadius() {
+    return Math.min(window.innerWidth, window.innerHeight) * 0.32;
+  }
+
+  function circleTargetFor(i) {
+    const n = photos.length;
+    const angle = circleAngle + (i / n) * Math.PI * 2;
+    const r = circleRadius();
+    const { w, h } = fitBox(photos[i].ratio, Math.min(window.innerWidth * 0.15, 190), Math.min(window.innerHeight * 0.2, 190));
+    return { x: Math.cos(angle) * r, y: Math.sin(angle) * r, w, h, opacity: 1 };
+  }
+
+  const scatterSlots = computeScatter();
+  const wanderers = scatterSlots.map(rect => makeWanderer(rect, performance.now()));
+
+  // a hover doesn't just re-target a per-frame lerp (that front-loads
+  // all the movement into the first few frames — reads as a "pop"); it
+  // starts a fixed-duration eased tween instead, so growing into the
+  // grid slot (and shrinking back) has a real slow-in/slow-out curve
+  const TRANSITION_MS = 700;
+
+  const states = photos.map((p, i) => {
+    const rect = scatterSlots[i];
+    return {
+      mode: 'scatter', // 'scatter' | 'toGrid' | 'atGrid' | 'toScatter' | 'toCircle' | 'circle'
+      x: rect.x, y: rect.y, w: rect.w, h: rect.h, opacity: rect.opacity,
+      from: null,
+      target: null, // frozen hover-enlarge rect, set once at hover start
+      transitionStart: 0,
+      hovered: false,
+      hoverZone: null, // frozen hit-rect (page coords) while hovered
+    };
+  });
+
+  let lastTime = null;
+  function loop(now) {
+    const dt = lastTime === null ? 16 : Math.min(now - lastTime, 50);
+    lastTime = now;
+    updateWanderers(now, dt);
+    circleAngle += CIRCLE_ROTATE_SPEED * dt / 1000;
+
+    const circleActive = !!window.__circleGestureActive;
+
+    frames.forEach((frame, i) => {
+      const st = states[i];
+      const wd = wanderers[i];
+
+      if (circleActive && st.mode !== 'toCircle' && st.mode !== 'circle') {
+        st.mode = 'toCircle';
+        st.from = { x: st.x, y: st.y, w: st.w, h: st.h, opacity: st.opacity };
+        st.transitionStart = now;
+      } else if (!circleActive && (st.mode === 'toCircle' || st.mode === 'circle')) {
+        st.mode = 'toScatter';
+        st.from = { x: st.x, y: st.y, w: st.w, h: st.h, opacity: st.opacity };
+        st.transitionStart = now;
+      } else if (!circleActive && st.hovered && st.mode !== 'toGrid' && st.mode !== 'atGrid') {
+        st.mode = 'toGrid';
+        st.from = { x: st.x, y: st.y, w: st.w, h: st.h, opacity: st.opacity };
+        st.target = hoverTargetAt(st.x, st.y, photos[i].ratio);
+        st.transitionStart = now;
+        if (photos[i].hoverSrc) images[i].src = photos[i].hoverSrc;
+      } else if (!circleActive && !st.hovered && (st.mode === 'toGrid' || st.mode === 'atGrid')) {
+        st.mode = 'toScatter';
+        st.from = { x: st.x, y: st.y, w: st.w, h: st.h, opacity: st.opacity };
+        st.transitionStart = now;
+        if (photos[i].hoverSrc) images[i].src = photos[i].src;
+      }
+
+      let rect;
+      if (st.mode === 'scatter') {
+        rect = { x: wd.x, y: wd.y, w: wd.w, h: wd.h, opacity: 1 };
+      } else if (st.mode === 'toCircle') {
+        const t = Math.min(1, (now - st.transitionStart) / TRANSITION_MS);
+        rect = lerpRect(st.from, circleTargetFor(i), easeInOutCubic(t));
+        if (t >= 1) st.mode = 'circle';
+      } else if (st.mode === 'circle') {
+        rect = circleTargetFor(i);
+      } else if (st.mode === 'toGrid') {
+        const t = Math.min(1, (now - st.transitionStart) / TRANSITION_MS);
+        rect = lerpRect(st.from, { ...st.target, opacity: 1 }, easeInOutCubic(t));
+        if (t >= 1) st.mode = 'atGrid';
+      } else if (st.mode === 'atGrid') {
+        rect = { ...st.target, opacity: 1 };
+      } else {
+        const t = Math.min(1, (now - st.transitionStart) / TRANSITION_MS);
+        rect = lerpRect(st.from, { x: wd.x, y: wd.y, w: wd.w, h: wd.h, opacity: 1 }, easeInOutCubic(t));
+        if (t >= 1) st.mode = 'scatter';
+      }
+
+      st.x = rect.x; st.y = rect.y; st.w = rect.w; st.h = rect.h;
+      st.opacity = rect.opacity;
+
+      frame.style.width = st.w + 'px';
+      frame.style.height = st.h + 'px';
+      frame.style.transform = `translate(-50%, -50%) translate(${st.x}px, ${st.y}px)`;
+      frame.style.opacity = st.opacity;
+    });
+
+    requestAnimationFrame(loop);
+  }
+
+  // ---- hover: the hit-region freezes the instant a hover starts, at
+  // the photo's on-ring position/size plus generous padding, and stays
+  // put while the photo glides off to its grid slot. Without this, the
+  // frame drifts out from under a stationary cursor as it moves/grows,
+  // and native mouseenter/mouseleave fire back and forth on every frame
+  // that crosses the (also moving) hitbox edge — the reported trembling.
+  // Freezing the hit-test region decouples "is the cursor still where it
+  // hovered" from "where the frame has animated to". ----
+  const HOVER_PAD = 36;
+
+  function currentRect(st) {
+    const cx = window.innerWidth / 2 + st.x;
+    const cy = window.innerHeight / 2 + st.y;
+    return {
+      left: cx - st.w / 2 - HOVER_PAD,
+      right: cx + st.w / 2 + HOVER_PAD,
+      top: cy - st.h / 2 - HOVER_PAD,
+      bottom: cy + st.h / 2 + HOVER_PAD,
+    };
+  }
+
+  frames.forEach((frame, i) => {
+    frame.addEventListener('mouseenter', () => {
+      const st = states[i];
+      st.hovered = true;
+      st.hoverZone = currentRect(st);
+    });
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    states.forEach(st => {
+      if (!st.hovered || !st.hoverZone) return;
+      const z = st.hoverZone;
+      if (e.clientX < z.left || e.clientX > z.right || e.clientY < z.top || e.clientY > z.bottom) {
+        st.hovered = false;
+        st.hoverZone = null;
+      }
+    });
+  });
+
+  // scatterSlots was only ever the starting point — the wander sim owns
+  // position after that, and its own boundary check already re-adapts
+  // to a resized stage on the next frame; hover targets are computed
+  // fresh (against live window size) each time a hover begins, so
+  // nothing here needs recomputing on resize.
+
+  requestAnimationFrame(loop);
+
+  // ---- lightbox: click a photo and the *viewpoint* pushes in toward
+  // it — #stage itself scales up around the clicked photo's exact
+  // on-screen position while this backdrop + the detail image
+  // cross-fade in on top. That's the whole scene rushing toward one
+  // point, like looking closer through the hole, rather than one
+  // element growing and sliding to the middle (which read as a plain
+  // UI/page transition). Reverses symmetrically on close. ----
+  const lightbox = document.getElementById('lightbox');
+  const lightboxFrame = document.getElementById('lightboxFrame');
+  const lightboxImg = document.getElementById('lightboxImg');
+  const ZOOM_MS = 650;
+  const ZOOM_SCALE = 5;
+  let zoomAnim = null;
+
+  function sizeLightboxFrame(ratio) {
+    const { w, h } = fitBox(ratio, window.innerWidth * 0.82, window.innerHeight * 0.82);
+    lightboxFrame.style.width = w + 'px';
+    lightboxFrame.style.height = h + 'px';
+  }
+
+  function openLightbox(thumb, i) {
+    const ratio = parseFloat(thumb.dataset.ratio) || 1;
+    const st = states[i];
+    const cx = window.innerWidth / 2 + st.x;
+    const cy = window.innerHeight / 2 + st.y;
+
+    sizeLightboxFrame(ratio);
+    lightboxImg.src = thumb.src;
+
+    stage.style.transformOrigin = `${cx}px ${cy}px`;
+    if (zoomAnim) zoomAnim.cancel();
+    zoomAnim = stage.animate([
+      { transform: 'scale(1)', opacity: 1 },
+      { transform: `scale(${ZOOM_SCALE})`, opacity: 0 },
+    ], { duration: ZOOM_MS, easing: 'cubic-bezier(0.55, 0, 1, 0.45)', fill: 'forwards' });
+
+    lightbox.classList.add('active');
+  }
+
+  function closeLightbox() {
+    if (!lightbox.classList.contains('active')) return;
+    lightbox.classList.remove('active');
+
+    if (zoomAnim) zoomAnim.cancel();
+    zoomAnim = stage.animate([
+      { transform: `scale(${ZOOM_SCALE})`, opacity: 0 },
+      { transform: 'scale(1)', opacity: 1 },
+    ], { duration: ZOOM_MS, easing: 'cubic-bezier(0, 0.55, 0.45, 1)', fill: 'forwards' });
+    zoomAnim.onfinish = () => {
+      stage.style.transform = '';
+      stage.style.opacity = '';
+    };
+  }
+
+  stage.addEventListener('click', (e) => {
+    const thumb = e.target.closest('img');
+    if (thumb) openLightbox(thumb, images.indexOf(thumb));
+  });
+
+  lightbox.addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeLightbox();
+  });
+
+  // ---- deep link: a hole on index.html can arrive here with
+  // ?photo=<file>, landing straight on that photo enlarged and centered
+  // (via the same lightbox) instead of the default wander view. No
+  // clicked thumbnail exists yet on a fresh page load, so this skips
+  // the zoom push and just opens the lightbox directly. ----
+  const deepLinkPhoto = new URLSearchParams(location.search).get('photo');
+  if (deepLinkPhoto) {
+    const known = photos.find(p => p.src === deepLinkPhoto || p.hoverSrc === deepLinkPhoto);
+    sizeLightboxFrame(known ? known.ratio : 1);
+    lightboxImg.src = deepLinkPhoto;
+    lightbox.classList.add('active');
+  }
+</script>
+
+<script type="module">
+  // ---- hand gesture → circle mode: make an "OK" shape (thumb tip
+  // pinched to index fingertip) with one hand in front of the webcam
+  // and every photo eases onto a slow-turning ring (see circleTargetFor
+  // in the script above); let go and they ease back into the wander.
+  // Runs entirely client-side via MediaPipe's HandLandmarker, loaded
+  // from a CDN, and only ever writes to window.__circleGestureActive —
+  // the main script above polls that flag once a frame and never
+  // imports this module, so a blocked camera, a slow/failed model
+  // fetch, or an unsupported browser just leaves the flag false
+  // forever instead of breaking the page. Requires camera permission
+  // and network access to the CDN/model; if opened as a bare file://
+  // page some browsers refuse getUserMedia there — serve it over
+  // http://localhost instead if the camera prompt never appears.
+  //
+  // Detection is throttled to DETECT_INTERVAL_MS instead of running on
+  // every rendered frame — detectForVideo() runs synchronously on the
+  // main thread, and calling it at a full 60fps alongside the wander
+  // sim's own per-frame work was the main source of the reported lag.
+  // A hand pinch/release doesn't need 60 checks a second to read as
+  // instant, so this trades imperceptible latency for a lot less work. ----
+  import { HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest";
+
+  window.__circleGestureActive = false;
+
+  const videoEl = document.getElementById('handVideo');
+
+  const PINCH_RATIO_ON = 0.55;    // thumb–index distance / hand size below this = "circle" formed
+  const PINCH_RATIO_OFF = 0.7;    // hysteresis: has to open back up past this to release
+  const DETECT_INTERVAL_MS = 130; // ~7-8fps of inference — still catches a pinch instantly by
+                                   // human standards, but this is the single biggest lever on
+                                   // main-thread cost, since detectForVideo() blocks it
+
+  async function start() {
+    let stream;
+    try {
+      // back to 320x240 — dropping this to 160x120 for the earlier lag
+      // fix left the palm detector too little detail to track reliably
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 320 }, height: { ideal: 240 } },
+        audio: false,
+      });
+    } catch (err) {
+      console.warn('hand-gesture: getUserMedia failed', err);
+      return;
+    }
+    videoEl.srcObject = stream;
+    await videoEl.play();
+
+    let handLandmarker;
+    try {
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+      );
+      handLandmarker = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+          // switching this to "CPU" for the earlier lag pass is the
+          // likely reason recognition stopped working entirely — if
+          // createFromOptions() throws for a delegate/model mismatch,
+          // it's silently caught below and start() just gives up, which
+          // looks exactly like "never recognizes anything." Back to
+          // "GPU", the configuration that was actually confirmed working.
+          delegate: "GPU",
+        },
+        runningMode: "VIDEO",
+        numHands: 1,
+      });
+    } catch (err) {
+      console.warn('hand-gesture: model load failed', err);
+      return;
+    }
+
+    let pinching = false;
+    let lastDetectAt = 0;
+
+    function detectLoop(now) {
+      if (now - lastDetectAt >= DETECT_INTERVAL_MS) {
+        lastDetectAt = now;
+        const result = handLandmarker.detectForVideo(videoEl, now);
+        const landmarks = result.landmarks && result.landmarks[0];
+
+        if (landmarks) {
+          const thumbTip = landmarks[4], indexTip = landmarks[8];
+          const wrist = landmarks[0], middleMcp = landmarks[9];
+          const handSize = Math.hypot(wrist.x - middleMcp.x, wrist.y - middleMcp.y) || 0.0001;
+          const pinchDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
+          const ratio = pinchDist / handSize;
+
+          if (!pinching && ratio < PINCH_RATIO_ON) pinching = true;
+          else if (pinching && ratio > PINCH_RATIO_OFF) pinching = false;
+        } else {
+          pinching = false;
+        }
+
+        window.__circleGestureActive = pinching;
+      }
+      requestAnimationFrame(detectLoop);
+    }
+
+    requestAnimationFrame(detectLoop);
+  }
+
+  start();
+</script>
+
+</body>
+</html>
