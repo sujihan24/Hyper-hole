@@ -35,7 +35,7 @@
 
   :root{
     --bg:#F9F9FB;
-    --paper:#1e1d21;
+    --paper:#090909;
     /* paper is fixed at 360mm × 128mm (physical size on screen); paper is
        79% × 69.75% of the sheet, so the sheet itself works out to
        360/0.79 × 128/0.6975 mm to keep that same margin proportion */
@@ -45,7 +45,31 @@
     --font-kr: 'SM3SSMyungJo', 'Apple SD Gothic Neo', serif;
   }
 
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; cursor: none; }
+
+  /* ---- custom cursor: a plain circle that auto-inverts against
+     whatever's under it (white on black, black on white) via
+     mix-blend-mode: difference — a static cursor image can't react to
+     the page like that, so the system cursor is hidden (cursor: none
+     above) and this dot, positioned by JS on every mousemove, stands
+     in for it. Must stay a direct child of body, outside any
+     transformed/scaled element, so it never inherits a transform and
+     drifts out of sync with the real pointer. ---- */
+  .cursor-dot {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 22px;
+    height: 22px;
+    margin: -11px 0 0 -11px;
+    border-radius: 50%;
+    background: #fff;
+    mix-blend-mode: difference;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0;
+    will-change: transform;
+  }
 
   html, body {
     margin: 0;
@@ -108,7 +132,7 @@
     background: var(--paper);
     container-type: inline-size;
     overflow: hidden;
-    box-shadow: inset 0 0 0.4cqw 0.4cqw rgba(0, 0, 0, 0.4);
+    box-shadow: inset 0 0 0.4cqw 0.4cqw rgba(0, 0, 0, 0.35);
   }
 
   /* aged-paper overlay — tex.jpg sits on top of the dark paper,
@@ -157,7 +181,6 @@
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;
     transition: transform 0.35s ease, box-shadow 0.35s ease;
-    cursor: pointer;
   }
 
   .hole span {
@@ -199,79 +222,97 @@
     <a class="hole" href="sub_1.html?photo=0725_bang_2.png" style="left:33.18%; top:19.58%; width:2.3cqw; height:2.3cqw"><span>공</span></a>
     <a class="hole" href="sub_1.html?photo=0725_bang_2.png" style="left:35.14%; top:14.09%; width:2.3cqw; height:2.3cqw"><span>간</span></a>
     <!-- 방 -->
-    <a class="hole" href="sub_1.html" style="left:58.93%; top:89.71%; width:2.3cqw; height:2.3cqw"><span>방</span></a>
+    <a class="hole" href="sub_1.html?photo=0726_gong_1.png" style="left:58.93%; top:89.71%; width:2.3cqw; height:2.3cqw"><span>방</span></a>
     <!-- 기억 -->
-    <a class="hole" href="sub_1.html" style="left:36.85%; top:90.02%; width:2.3cqw; height:2.3cqw"><span>기</span></a>
-    <a class="hole" href="sub_1.html" style="left:36.95%; top:82.29%; width:2.3cqw; height:2.3cqw"><span>억</span></a>
+    <a class="hole" href="sub_1.html?photo=0727_gieok_1.png" style="left:36.85%; top:90.02%; width:2.3cqw; height:2.3cqw"><span>기</span></a>
+    <a class="hole" href="sub_1.html?photo=0727_gieok_1.png" style="left:36.95%; top:82.29%; width:2.3cqw; height:2.3cqw"><span>억</span></a>
     <!-- 재조합 -->
-    <a class="hole" href="sub_1.html" style="left:96.47%; top:45.29%; width:2.3cqw; height:2.3cqw"><span>재</span></a>
-    <a class="hole" href="sub_1.html" style="left:93.93%; top:42.47%; width:2.3cqw; height:2.3cqw"><span>조</span></a>
-    <a class="hole" href="sub_1.html" style="left:94.81%; top:51.63%; width:2.3cqw; height:2.3cqw"><span>합</span></a>
+    <a class="hole" href="sub_1.html?photo=0730_jaejohap_1.png" style="left:96.47%; top:45.29%; width:2.3cqw; height:2.3cqw"><span>재</span></a>
+    <a class="hole" href="sub_1.html?photo=0730_jaejohap_1.png" style="left:93.93%; top:42.47%; width:2.3cqw; height:2.3cqw"><span>조</span></a>
+    <a class="hole" href="sub_1.html?photo=0730_jaejohap_1.png" style="left:94.81%; top:51.63%; width:2.3cqw; height:2.3cqw"><span>합</span></a>
     <!-- 꿈 -->
     <a class="hole" href="sub_1.html" style="left:89.7%; top:10.57%; width:2.3cqw; height:2.3cqw"><span>꿈</span></a>
     <!-- 마주 -->
-    <a class="hole" href="sub_1.html" style="left:57.2%; top:53.44%; width:2.3cqw; height:2.3cqw"><span>마</span></a>
-    <a class="hole" href="sub_1.html" style="left:56.26%; top:60.66%; width:2.3cqw; height:2.3cqw"><span>주</span></a>
+    <a class="hole" href="sub_1.html?photo=0802_maju_1.png" style="left:57.2%; top:53.44%; width:2.3cqw; height:2.3cqw"><span>마</span></a>
+    <a class="hole" href="sub_1.html?photo=0802_maju_1.png" style="left:56.26%; top:60.66%; width:2.3cqw; height:2.3cqw"><span>주</span></a>
     <!-- 자신 -->
-    <a class="hole" href="sub_1.html" style="left:83.26%; top:26.28%; width:2.3cqw; height:2.3cqw"><span>자</span></a>
-    <a class="hole" href="sub_1.html" style="left:86.37%; top:23.48%; width:2.3cqw; height:2.3cqw"><span>신</span></a>
+    <a class="hole" href="sub_1.html?photo=0803_jasin_1.png" style="left:83.26%; top:26.28%; width:2.3cqw; height:2.3cqw"><span>자</span></a>
+    <a class="hole" href="sub_1.html?photo=0803_jasin_1.png" style="left:86.37%; top:23.48%; width:2.3cqw; height:2.3cqw"><span>신</span></a>
     <!-- 회피 -->
-    <a class="hole" href="sub_1.html" style="left:86.74%; top:47.78%; width:2.3cqw; height:2.3cqw"><span>회</span></a>
-    <a class="hole" href="sub_1.html" style="left:85.04%; top:54.26%; width:2.3cqw; height:2.3cqw"><span>피</span></a>
+    <a class="hole" href="sub_1.html?photo=0804_hoepi_1.png" style="left:86.74%; top:47.78%; width:2.3cqw; height:2.3cqw"><span>회</span></a>
+    <a class="hole" href="sub_1.html?photo=0804_hoepi_1.png" style="left:85.04%; top:54.26%; width:2.3cqw; height:2.3cqw"><span>피</span></a>
     <!-- 동기 -->
     <a class="hole" href="sub_1.html" style="left:80.41%; top:69.99%; width:2.3cqw; height:2.3cqw"><span>동</span></a>
     <a class="hole" href="sub_1.html" style="left:81.07%; top:60.27%; width:2.3cqw; height:2.3cqw"><span>기</span></a>
     <!-- 휴식 -->
-    <a class="hole" href="sub_1.html" style="left:9.42%; top:30.75%; width:2.3cqw; height:2.3cqw"><span>휴</span></a>
-    <a class="hole" href="sub_1.html" style="left:6.75%; top:35.24%; width:2.3cqw; height:2.3cqw"><span>식</span></a>
+    <a class="hole" href="sub_1.html?photo=0808_hyusik_1.png" style="left:9.42%; top:30.75%; width:2.3cqw; height:2.3cqw"><span>휴</span></a>
+    <a class="hole" href="sub_1.html?photo=0808_hyusik_1.png" style="left:6.75%; top:35.24%; width:2.3cqw; height:2.3cqw"><span>식</span></a>
     <!-- 낭비 -->
     <a class="hole" href="sub_1.html" style="left:72.95%; top:82.58%; width:2.3cqw; height:2.3cqw"><span>낭</span></a>
     <a class="hole" href="sub_1.html" style="left:75.73%; top:83.39%; width:2.3cqw; height:2.3cqw"><span>비</span></a>
     <!-- 복원 -->
-    <a class="hole" href="sub_1.html" style="left:45.58%; top:86.13%; width:2.3cqw; height:2.3cqw"><span>복</span></a>
-    <a class="hole" href="sub_1.html" style="left:45.04%; top:78.06%; width:2.3cqw; height:2.3cqw"><span>원</span></a>
+    <a class="hole" href="sub_1.html?photo=0810_bogwon_1.png" style="left:45.58%; top:86.13%; width:2.3cqw; height:2.3cqw"><span>복</span></a>
+    <a class="hole" href="sub_1.html?photo=0810_bogwon_1.png" style="left:45.04%; top:78.06%; width:2.3cqw; height:2.3cqw"><span>원</span></a>
 
     <!-- 기록 -->
     <a class="hole" href="sub_1.html" style="left:11.01%; top:67.0%; width:2.3cqw; height:2.3cqw"><span>기</span></a>
     <a class="hole" href="sub_1.html" style="left:13.24%; top:75.93%; width:2.3cqw; height:2.3cqw"><span>록</span></a>
     <!-- 따라 -->
-    <a class="hole" href="sub_1.html" style="left:48.6%; top:47.5%; width:2.3cqw; height:2.3cqw"><span>따</span></a>
-    <a class="hole" href="sub_1.html" style="left:46.95%; top:40.73%; width:2.3cqw; height:2.3cqw"><span>라</span></a>
+    <a class="hole" href="sub_1.html?photo=0812_ttara_1.png" style="left:48.6%; top:47.5%; width:2.3cqw; height:2.3cqw"><span>따</span></a>
+    <a class="hole" href="sub_1.html?photo=0812_ttara_1.png" style="left:46.95%; top:40.73%; width:2.3cqw; height:2.3cqw"><span>라</span></a>
     <!-- 지도 -->
     <a class="hole" href="sub_1.html" style="left:63.34%; top:71.77%; width:2.3cqw; height:2.3cqw"><span>지</span></a>
     <a class="hole" href="sub_1.html" style="left:61.98%; top:65.12%; width:2.3cqw; height:2.3cqw"><span>도</span></a>
     <!-- 목적지 -->
-    <a class="hole" href="sub_1.html" style="left:17.67%; top:17.72%; width:2.3cqw; height:2.3cqw"><span>목</span></a>
-    <a class="hole" href="sub_1.html" style="left:17.67%; top:25.63%; width:2.3cqw; height:2.3cqw"><span>적</span></a>
-    <a class="hole" href="sub_1.html" style="left:14.41%; top:19.01%; width:2.3cqw; height:2.3cqw"><span>지</span></a>
+    <a class="hole" href="sub_1.html?photo=0815_mokjeokji_1.png" style="left:17.67%; top:17.72%; width:2.3cqw; height:2.3cqw"><span>목</span></a>
+    <a class="hole" href="sub_1.html?photo=0815_mokjeokji_1.png" style="left:17.67%; top:25.63%; width:2.3cqw; height:2.3cqw"><span>적</span></a>
+    <a class="hole" href="sub_1.html?photo=0815_mokjeokji_1.png" style="left:14.41%; top:19.01%; width:2.3cqw; height:2.3cqw"><span>지</span></a>
     <!-- 길 -->
     <a class="hole" href="sub_1.html" style="left:51.58%; top:76.89%; width:2.3cqw; height:2.3cqw"><span>길</span></a>
     <!-- 연속 -->
-    <a class="hole" href="sub_1.html" style="left:48.23%; top:12.96%; width:2.3cqw; height:2.3cqw"><span>연</span></a>
-    <a class="hole" href="sub_1.html" style="left:44.57%; top:12.59%; width:2.3cqw; height:2.3cqw"><span>속</span></a>
+    <a class="hole" href="sub_1.html?photo=0818_yeonsok_1.png" style="left:48.23%; top:12.96%; width:2.3cqw; height:2.3cqw"><span>연</span></a>
+    <a class="hole" href="sub_1.html?photo=0818_yeonsok_1.png" style="left:44.57%; top:12.59%; width:2.3cqw; height:2.3cqw"><span>속</span></a>
 
     <!-- 구멍 -->
     <a class="hole" href="sub_1.html" style="left:30.28%; top:89.55%; width:2.3cqw; height:2.3cqw"><span>구</span></a>
     <a class="hole" href="sub_1.html" style="left:27.56%; top:88.65%; width:2.3cqw; height:2.3cqw"><span>멍</span></a>
     <!-- 겹쳐 -->
-    <a class="hole" href="sub_1.html" style="left:93.31%; top:79.18%; width:2.3cqw; height:2.3cqw"><span>겹</span></a>
-    <a class="hole" href="sub_1.html" style="left:95.42%; top:72.69%; width:2.3cqw; height:2.3cqw"><span>쳐</span></a>
+    <a class="hole" href="sub_1.html?photo=0820_gyeop_1.png" style="left:93.31%; top:79.18%; width:2.3cqw; height:2.3cqw"><span>겹</span></a>
+    <a class="hole" href="sub_1.html?photo=0820_gyeop_1.png" style="left:95.42%; top:72.69%; width:2.3cqw; height:2.3cqw"><span>쳐</span></a>
     <!-- 책 -->
     <a class="hole" href="sub_1.html" style="left:9.65%; top:10.05%; width:2.3cqw; height:2.3cqw"><span>책</span></a>
     <!-- 전시 -->
-    <a class="hole" href="sub_1.html" style="left:31.92%; top:59.41%; width:2.3cqw; height:2.3cqw"><span>전</span></a>
-    <a class="hole" href="sub_1.html" style="left:30.9%; top:66.56%; width:2.3cqw; height:2.3cqw"><span>시</span></a>
+    <a class="hole" href="sub_1.html?photo=0823_jeon_1.png" style="left:31.92%; top:59.41%; width:2.3cqw; height:2.3cqw"><span>전</span></a>
+    <a class="hole" href="sub_1.html?photo=0823_jeon_1.png" style="left:30.9%; top:66.56%; width:2.3cqw; height:2.3cqw"><span>시</span></a>
     <!-- 작업 -->
     <a class="hole" href="sub_1.html" style="left:67.07%; top:39.58%; width:2.3cqw; height:2.3cqw"><span>작</span></a>
     <a class="hole" href="sub_1.html" style="left:69.91%; top:39.24%; width:2.3cqw; height:2.3cqw"><span>업</span></a>
     <!-- 레퍼런스 -->
-    <a class="hole" href="sub_1.html" style="left:20.48%; top:70.65%; width:2.3cqw; height:2.3cqw"><span>레</span></a>
-    <a class="hole" href="sub_1.html" style="left:17.81%; top:74.35%; width:2.3cqw; height:2.3cqw"><span>퍼</span></a>
-    <a class="hole" href="sub_1.html" style="left:18.19%; top:66.46%; width:2.3cqw; height:2.3cqw"><span>런</span></a>
-    <a class="hole" href="sub_1.html" style="left:22.82%; top:77.1%; width:2.3cqw; height:2.3cqw"><span>스</span></a>
+    <a class="hole" href="sub_1.html?photo=0825_ref_1.png" style="left:20.48%; top:70.65%; width:2.3cqw; height:2.3cqw"><span>레</span></a>
+    <a class="hole" href="sub_1.html?photo=0825_ref_1.png" style="left:17.81%; top:74.35%; width:2.3cqw; height:2.3cqw"><span>퍼</span></a>
+    <a class="hole" href="sub_1.html?photo=0825_ref_1.png" style="left:18.19%; top:66.46%; width:2.3cqw; height:2.3cqw"><span>런</span></a>
+    <a class="hole" href="sub_1.html?photo=0825_ref_1.png" style="left:22.82%; top:77.1%; width:2.3cqw; height:2.3cqw"><span>스</span></a>
+    <!-- 장면 -->
+    <a class="hole" href="sub_1.html?photo=0729_jang_1.png" style="left:62.99%; top:12.0%; width:2.3cqw; height:2.3cqw"><span>장</span></a>
+    <a class="hole" href="sub_1.html?photo=0729_jang_1.png" style="left:62.1%; top:17.6%; width:2.3cqw; height:2.3cqw"><span>면</span></a>
   </div>
 </div>
 </div>
+
+<div class="cursor-dot" id="cursorDot"></div>
+
+<script>
+  // custom cursor: just follow the real pointer 1:1, no easing — a lagged
+  // cursor reads as low-quality. Hidden (opacity 0) until the first real
+  // mousemove so it doesn't flash at (0,0) before the pointer has moved.
+  (() => {
+    const dot = document.getElementById('cursorDot');
+    window.addEventListener('mousemove', (e) => {
+      dot.style.opacity = 1;
+      dot.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+    }, { passive: true });
+  })();
+</script>
 
 <script>
   // intro + idle replay: every hole appears with a hard instant cut (no
